@@ -68,4 +68,9 @@ npm run build
 - 字段、状态、动作与流转目标集中在 `frontend/src/data/modules.ts`；示例数据在
   `frontend/src/data/seed.ts`。
 - 状态流转只允许在 `local-service.ts` 里改，页面组件不做业务判断。
+- 测报方案的状态判定集中在 `frontend/src/data/plan-workflow.ts`（纯函数）：列表、详情
+  （`/plan/:id`）、打印包、仪器检定入口引用同一份判定结果；提交幂等、越级批准拒绝、
+  已批准方案可修订（旧版本转只读）、废止即清理待审批待办。所有写操作走
+  `local-store.ts` 的 `transact`，一次落盘，失败不留半份状态。旧版本本地数据缺少
+  版本/流转记录/复核事项字段时按默认值只读兼容。
 - 想回到初始数据：清掉浏览器里 `hydrology-monitor-station:entries` 这一项，或调用 `resetModule(模块)`。

@@ -6,10 +6,19 @@
         <p class="page-desc">维护测报方案，围绕方案编号、方案名称、适用范围、监测项目做登记、筛选与状态流转。</p>
       </div>
       <div class="page-actions">
-        <button class="btn primary" type="button" @click="openCreate">登记测报方案</button>
+        <button class="btn primary" type="button" @click="toggleCreate">登记测报方案</button>
         <button class="btn" type="button" @click="exportRows">导出测报方案清单</button>
       </div>
     </header>
+
+    <form v-if="showCreate" class="create-bar" @submit.prevent="submitCreate">
+      <label v-for="field in createFields" :key="field" class="filter-item">
+        <span>{{ field }}</span>
+        <input v-model="createForm[field]" :placeholder="`填写${field}`" />
+      </label>
+      <button class="btn primary" type="submit">保存登记</button>
+      <button class="btn ghost" type="button" @click="toggleCreate">取消</button>
+    </form>
 
     <div class="stat-row">
       <article v-for="item in stats" :key="item.label" class="stat-card">
@@ -38,66 +47,106 @@
         <tr>
           <th v-for="column in columns" :key="column">{{ column }}</th>
           <th>当前状态</th>
+          <th>方案结论</th>
           <th>可执行动作</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
-          <td>{{ row.status }}</td>
+        <tr v-for="item in items" :key="String(item.row.id)">
+          <td v-for="column in columns" :key="column">{{ item.row[column] || '—' }}</td>
+          <td>{{ item.verdict.status }}</td>
+          <td>{{ item.verdict.conclusion }}</td>
           <td class="row-actions">
             <button
-              v-for="action in actions"
+              v-for="action in item.verdict.availableActions"
               :key="action"
               class="link"
               type="button"
-              @click="runAction(action, row)"
+              @click="runAction(action, item.row)"
             >
               {{ action }}
             </button>
+            <span v-if="item.verdict.readOnly" class="readonly-tag">只读</span>
+            <button class="link" type="button" @click="openDetail(item.row)">详情</button>
           </td>
         </tr>
-        <tr v-if="!rows.length">
-          <td :colspan="columns.length + 2" class="empty-state">暂无测报方案数据，可先登记测报方案</td>
+        <tr v-if="!items.length">
+          <td :colspan="columns.length + 3" class="empty-state">暂无测报方案数据，可先登记测报方案</td>
         </tr>
       </tbody>
     </table>
 
     <footer class="page-foot">
       <span>共 {{ total }} 条测报方案记录</span>
-      <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span v-if="message" :class="messageOk ? 'ok-text' : 'error-text'">{{ message }}</span>
     </footer>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import {
+  createPlan,
   downloadEntries,
-  listEntries,
+  listPlanView,
   moduleMeta,
-  runAction as applyAction,
+  planSummary,
+  runPlanAction,
 } from '@/api/local-service'
-import type { EntryRow } from '@/data/types'
+import type { EntryRow, PlanListItem } from '@/data/types'
+import { useSessionStore } from '@/stores/session'
 
 const meta = moduleMeta('plan')
-const columns = ["方案编号", "方案名称", "适用范围", "监测项目", "测次安排", "编制人", "批准人", "方案状态"]
-const actions = ["提交审批", "批准方案", "废止方案"]
-const statuses = ["编制中", "待审批", "已批准", "已修订", "已废止"]
-const stats = [{"label": "方案总数", "value": 0}, {"label": "已批准方案", "value": 0}, {"label": "待审批方案", "value": 0}]
+const store = useSessionStore()
+const router = useRouter()
 
-const rows = ref<EntryRow[]>([])
+const columns = ["方案编号", "方案名称", "版本", "适用范围", "监测项目", "测次安排", "编制人", "批准人", "方案状态"]
+const statuses = ["编制中", "待审批", "已批准", "已修订", "已废止"]
+const createFields = ["方案名称", "适用范围", "监测项目", "测次安排", "编制人"]
+
+const items = ref<PlanListItem[]>([])
 const total = ref(0)
-const errorMessage = ref('')
+const stats = ref<{ label: string; value: number }[]>([])
+const message = ref('')
+const messageOk = ref(false)
 const filters = ref<Record<string, string>>({})
-const filterFields = columns.slice(0, 3)
+const showCreate = ref(false)
+const createForm = ref<Record<string, string>>({})
+const filterFields = ["方案编号", "方案名称", "适用范围"]
+
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
-    count: rows.value.filter((row) => String(row.status) === status).length,
+    count: items.value.filter((item) => item.verdict.status === status).length,
   })),
 )
+
+function toggleCreate() {
+  showCreate.value = !showCreate.value
+  createForm.value = {}
+}
+
+function submitCreate() {
+  const result = createPlan(
+    {
+      方案名称: createForm.value['方案名称'] ?? '',
+      适用范围: createForm.value['适用范围'] ?? '',
+      监测项目: createForm.value['监测项目'] ?? '',
+      测次安排: createForm.value['测次安排'] ?? '',
+      编制人: createForm.value['编制人'] ?? '',
+    },
+    store.operator,
+  )
+  messageOk.value = result.ok
+  message.value = result.message
+  if (result.ok) {
+    showCreate.value = false
+    createForm.value = {}
+  }
+  reload()
+}
 
 function resetFilters() {
   filters.value = {}
@@ -108,28 +157,26 @@ function exportRows() {
   downloadEntries(meta.key)
 }
 
-function openCreate() {
-  errorMessage.value = '测报方案登记入口尚未接入审批流'
+function openDetail(row: EntryRow) {
+  router.push({ name: 'plan-detail', params: { id: Number(row.id) } })
 }
 
 function runAction(action: string, row: EntryRow) {
-  errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
-  if (!result.ok) {
-    errorMessage.value = result.message
-    return
-  }
+  const result = runPlanAction(Number(row.id), action, store.operator)
+  messageOk.value = result.ok
+  message.value = result.message
   reload()
 }
 
 function reload() {
-  errorMessage.value = ''
   try {
-    const payload = listEntries(meta.key, filters.value)
-    rows.value = payload.items
+    const payload = listPlanView(filters.value)
+    items.value = payload.items
     total.value = payload.total
+    stats.value = planSummary()
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '测报方案列表读取失败'
+    messageOk.value = false
+    message.value = error instanceof Error ? error.message : '测报方案列表读取失败'
   }
 }
 

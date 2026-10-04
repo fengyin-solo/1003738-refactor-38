@@ -38,34 +38,46 @@
         <tr>
           <th v-for="column in columns" :key="column">{{ column }}</th>
           <th>当前状态</th>
+          <th>关联方案结论</th>
+          <th>方案复核</th>
           <th>可执行动作</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
-          <td>{{ row.status }}</td>
+        <tr v-for="item in items" :key="String(item.row.id)">
+          <td v-for="column in columns" :key="column">{{ item.row[column] || '—' }}</td>
+          <td>{{ item.row.status }}</td>
+          <td>{{ item.planVerdict ? item.planVerdict.conclusion : '未关联方案' }}</td>
+          <td>{{ item.reviewDone ? '已补复核' : '—' }}</td>
           <td class="row-actions">
             <button
               v-for="action in actions"
               :key="action"
               class="link"
               type="button"
-              @click="runAction(action, row)"
+              @click="runAction(action, item.row)"
             >
               {{ action }}
             </button>
+            <button
+              v-if="canLinkReview(item)"
+              class="link"
+              type="button"
+              @click="linkReview(item.row)"
+            >
+              登记方案复核
+            </button>
           </td>
         </tr>
-        <tr v-if="!rows.length">
-          <td :colspan="columns.length + 2" class="empty-state">暂无仪器检定数据，可先登记仪器检定记录</td>
+        <tr v-if="!items.length">
+          <td :colspan="columns.length + 4" class="empty-state">暂无仪器检定数据，可先登记仪器检定记录</td>
         </tr>
       </tbody>
     </table>
 
     <footer class="page-foot">
       <span>共 {{ total }} 条仪器检定记录</span>
-      <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span v-if="message" :class="messageOk ? 'ok-text' : 'error-text'">{{ message }}</span>
     </footer>
   </section>
 </template>
@@ -74,30 +86,46 @@
 import { computed, onMounted, ref } from 'vue'
 
 import {
+  appendReviewFromCalibration,
   downloadEntries,
-  listEntries,
+  listCalibrationView,
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
-import type { EntryRow } from '@/data/types'
+import type { CalibrationListItem, EntryRow } from '@/data/types'
+import { useSessionStore } from '@/stores/session'
 
 const meta = moduleMeta('calibration')
-const columns = ["记录编号", "仪器编号", "仪器名称", "检定单位", "检定日期", "有效期至", "检定结论", "检定状态"]
+const store = useSessionStore()
+const columns = ["记录编号", "仪器编号", "仪器名称", "检定单位", "检定日期", "有效期至", "检定结论", "方案编号", "检定状态"]
 const actions = ["送出检定", "确认合格", "标记不合格"]
 const statuses = ["待送检", "送检中", "已合格", "不合格", "已停用"]
 const stats = [{"label": "待送检仪器", "value": 0}, {"label": "已合格仪器", "value": 0}, {"label": "不合格仪器", "value": 0}]
 
-const rows = ref<EntryRow[]>([])
+const items = ref<CalibrationListItem[]>([])
 const total = ref(0)
-const errorMessage = ref('')
+const message = ref('')
+const messageOk = ref(false)
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
-    count: rows.value.filter((row) => String(row.status) === status).length,
+    count: items.value.filter((item) => String(item.row.status) === status).length,
   })),
 )
+
+// 检定入口：检定合格且关联了方案的记录，可以联动给方案补登复核事项
+function canLinkReview(item: CalibrationListItem): boolean {
+  return String(item.row.status) === '已合格' && item.planVerdict !== null && !item.reviewDone
+}
+
+function linkReview(row: EntryRow) {
+  const result = appendReviewFromCalibration(Number(row.id), store.operator)
+  messageOk.value = result.ok
+  message.value = result.message
+  reload()
+}
 
 function resetFilters() {
   filters.value = {}
@@ -109,27 +137,25 @@ function exportRows() {
 }
 
 function openCreate() {
-  errorMessage.value = '仪器检定记录登记入口尚未接入审批流'
+  messageOk.value = false
+  message.value = '仪器检定记录登记入口尚未接入审批流'
 }
 
 function runAction(action: string, row: EntryRow) {
-  errorMessage.value = ''
   const result = applyAction(meta.key, Number(row.id), action)
-  if (!result.ok) {
-    errorMessage.value = result.message
-    return
-  }
+  messageOk.value = result.ok
+  message.value = result.ok ? '' : result.message
   reload()
 }
 
 function reload() {
-  errorMessage.value = ''
   try {
-    const payload = listEntries(meta.key, filters.value)
-    rows.value = payload.items
+    const payload = listCalibrationView(filters.value)
+    items.value = payload.items
     total.value = payload.total
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '仪器检定列表读取失败'
+    messageOk.value = false
+    message.value = error instanceof Error ? error.message : '仪器检定列表读取失败'
   }
 }
 

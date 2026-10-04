@@ -54,6 +54,20 @@ export function resetRows(key: string): EntryRow[] {
   return rows
 }
 
+/**
+ * 事务式写入：从存储新鲜读取一份草稿，在草稿上做完所有校验和修改，
+ * 最后一次落盘；落盘成功才换缓存。
+ * mutate 里抛错（校验不过）或 setItem 失败（如配额满）都不会留下半份状态。
+ */
+export function transact(mutate: (draft: Record<string, EntryRow[]>) => void): void {
+  const draft = readStorage()
+  mutate(draft)
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
+  }
+  cache = draft
+}
+
 export function storageKey(): string {
   return STORAGE_KEY
 }
