@@ -42,9 +42,21 @@ export function listRows(key: string): EntryRow[] {
 
 export function saveRows(key: string, rows: EntryRow[]): void {
   const next = { ...allRows(), [key]: rows }
+  writeSnapshot(next)
+}
+
+// 整快照提交：多张表在内存里组装好后一次性写入，要么整份生效，要么维持旧快照。
+export function writeSnapshot(next: Record<string, EntryRow[]>): void {
   cache = next
   if (typeof window !== 'undefined' && window.localStorage) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    } catch (error) {
+      // 写盘失败时不能让内存缓存领先于持久层：回退到重新读取，保证不留半份状态。
+      cache = null
+      allRows()
+      throw error
+    }
   }
 }
 

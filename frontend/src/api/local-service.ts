@@ -1,5 +1,7 @@
 import { MODULE_BY_KEY } from '@/data/modules'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
+import { deriveGroups } from '@/domain/plan-status'
+import { listReviews, migratePlanData } from '@/domain/plan-service'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
@@ -85,9 +87,21 @@ export function downloadEntries(key: string): void {
 }
 
 export function loadOverview(): OverviewResult {
+  // 测报方案的待办必须走统一状态判定：废止/驳回后 pending 清零，待审批与待复核才计入。
+  migratePlanData()
   const rows = allRows()
+  const planPending = deriveGroups(listRows('plan'), listReviews(), null)
+    .filter((group) => group.pending).length
   const modules = [...MODULE_BY_KEY.values()].map((meta) => {
     const entries = rows[meta.key] ?? []
+    if (meta.key === 'plan') {
+      return {
+        name: meta.name,
+        created: new Set(entries.map((row) => String(row['方案组号'] ?? row['方案编号'] ?? row.id))).size,
+        pending: planPending,
+        abnormal: entries.filter((row) => row.abnormal).length,
+      }
+    }
     return {
       name: meta.name,
       created: entries.length,

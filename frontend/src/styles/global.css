@@ -35,3 +35,55 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .error-text { color: #b42318; }
 .status-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
 .legend-item { background: #eef2f7; border-radius: 999px; padding: 2px 10px; }
+.legend-pending { background: #fff1e5; color: #b45309; }
+.ok-text { color: #15803d; }
+.muted { color: var(--muted); font-size: 12px; }
+.actor-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+.actor-bar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.actor-bar input, .actor-bar select { min-width: 160px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.actor-hint { color: var(--muted); font-size: 12px; }
+.create-card { display: flex; flex-wrap: wrap; gap: 12px; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.create-card label, .calibration-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); flex: 1 1 200px; }
+.create-card input, .calibration-form input, .calibration-form select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.span-2 { flex: 2 1 320px; }
+.form-actions { display: flex; gap: 10px; align-items: center; }
+.btn.danger { border-color: #f0a8a0; color: #b42318; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.todo-flag { margin-left: 8px; background: #fff1e5; color: #b45309; border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+.row-pending { background: #fffdf8; }
+.version-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+.version-card.readonly { background: #f8fafc; }
+.version-card.latest { border-color: #93c5fd; }
+.version-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.version-head h3 { margin: 0 0 6px; font-size: 15px; }
+.version-conclusion { font-weight: 600; }
+.tag { border-radius: 999px; padding: 1px 10px; font-size: 11px; margin-left: 8px; }
+.tag-latest { background: #dbeafe; color: #1d4ed8; }
+.tag-old { background: #eef2f7; color: var(--muted); }
+.version-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 16px; margin: 10px 0; }
+.version-grid dt { font-size: 12px; color: var(--muted); }
+.version-grid dd { margin: 2px 0 0; font-size: 13px; }
+.version-actions { display: flex; gap: 8px; margin: 8px 0; }
+.readonly-hint { color: var(--muted); font-size: 12px; }
+.trail-box { margin-top: 8px; font-size: 12px; }
+.trail-list { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+.trail-list em { color: var(--brand); font-style: normal; }
+.review-card, .calibration-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+.calibration-form { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.muted-card { color: var(--muted); background: #f8fafc; }
+.print-pack { background: #fff; max-width: 900px; margin: 0 auto; padding: 24px; }
+.print-block { margin-bottom: 22px; }
+.print-block h2 { font-size: 15px; border-left: 4px solid var(--brand); padding-left: 8px; }
+.print-table { width: 100%; border-collapse: collapse; }
+.print-table th, .print-table td { border: 1px solid #9aa6b2; padding: 6px 10px; font-size: 13px; text-align: left; }
+.print-table th { background: #f1f5f9; width: 160px; }
+.print-conclusion { color: var(--muted); }
+.print-tag { margin-left: 6px; background: #dbeafe; border-radius: 4px; padding: 0 6px; font-size: 11px; }
+.print-actions { display: flex; gap: 10px; justify-content: flex-end; }
+@media print {
+  .app-side, .app-head, .print-actions { display: none !important; }
+  .app-main { padding: 0; }
+  .app-shell { display: block; }
+  body { background: #fff; }
+  .print-pack { max-width: none; padding: 0; }
+}
